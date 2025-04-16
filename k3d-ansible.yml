@@ -1,0 +1,56 @@
+---
+# Main playbook to install and configure k3d cluster
+- name: Install and configure k3d cluster
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    # Check if k3d binary is already installed in the system
+    - name: Check if k3d is installed
+      command: which k3d
+      register: k3d_installed
+      ignore_errors: true
+
+    # Install k3d using the official installation script if not present
+    - name: Install k3d if not present
+      shell: |
+        curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+      when: k3d_installed.rc != 0
+
+    # Create k3d cluster using the specified config file and disable Traefik
+    - name: Create k3d cluster
+      shell: |
+        k3d cluster create inci \
+          --config /Users/akash/projects/k3d/config.yml \
+          --k3s-arg="--disable=traefik@server:0" \
+          --wait
+      register: cluster_creation
+      ignore_errors: true
+
+    # Verify that the cluster is up and running by checking node status
+    - name: Verify cluster status
+      shell: kubectl get nodes
+      register: cluster_status
+      when: cluster_creation.rc == 0
+
+    # Display the cluster status for verification
+    - name: Display cluster status
+      debug:
+        var: cluster_status.stdout_lines
+      when: cluster_creation.rc == 0
+
+    # Installing tls certificates for https
+    - name: Install tls certificates
+      shell: |
+        kubectl create secret tls tls-secret --key /Users/akash/privkey.pem --cert /Users/akash/fullchain.pem --namespace kube-system
+      when: cluster_creation.rc == 0
+
+    # Installing Nginx Ingress Controller
+    - name: Install Nginx Ingress Controller
+      shell: |
+        helm install ingress-nginx ingress-nginx/ingress-nginx --namespace kube-system --set controller.ingressClassResource.name=nginx --set controller.extraArgs.default-ssl-certificate=kube-system/tls-secret
+      when: cluster_creation.rc == 0
+
+    # Change context name to inci
+    - name: Change context name to inci
+      command: kubectx inci=k3d-inci
+      ignore_errors: true
