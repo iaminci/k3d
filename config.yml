@@ -7,6 +7,7 @@ agents: 2
 kubeAPI:
   hostIP: "0.0.0.0"
   hostPort: "6445"
+image: rancher/k3s:v1.33.3-k3s1
 volumes:
   - volume: /Users/akash/projects/k3d/mnt:/mnt
     nodeFilters:

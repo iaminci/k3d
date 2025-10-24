@@ -41,13 +41,40 @@
     # Installing tls certificates for https
     - name: Install tls certificates
       shell: |
-        kubectl create secret tls tls-secret --key /Users/akash/privkey.pem --cert /Users/akash/fullchain.pem --namespace kube-system
+        kubectl create secret tls tls-secret --key /Users/akash/projects/ssl/certs/opsly.dev/privkey.pem --cert /Users/akash/projects/ssl/certs/opsly.dev/fullchain.pem --namespace kube-system
       when: cluster_creation.rc == 0
+
+    # Check if Nginx Ingress repo is already added
+    - name: Check if Nginx Ingress repo is already added
+      ansible.builtin.shell: helm repo list | grep -q 'ingress-nginx'
+      register: repo_exists
+      ignore_errors: true
+      changed_when: false
+      when: cluster_creation.rc == 0
+
+    # Adding Nginx Ingress Repository
+    - name: Add Nginx Ingress Repository
+      kubernetes.core.helm_repository:
+        name: ingress-nginx
+        repo_url: https://kubernetes.github.io/ingress-nginx
+      when:
+        - cluster_creation.rc == 0
+        - repo_exists is defined
+        - repo_exists.rc is defined
+        - repo_exists.rc != 0
 
     # Installing Nginx Ingress Controller
     - name: Install Nginx Ingress Controller
-      shell: |
-        helm install ingress-nginx ingress-nginx/ingress-nginx --namespace kube-system --set controller.ingressClassResource.name=nginx --set controller.extraArgs.default-ssl-certificate=kube-system/tls-secret
+      kubernetes.core.helm:
+        name: ingress-nginx
+        chart_ref: ingress-nginx/ingress-nginx
+        release_namespace: kube-system
+        values:
+          controller:
+            ingressClassResource:
+              name: nginx
+            extraArgs:
+              default-ssl-certificate: kube-system/tls-secret
       when: cluster_creation.rc == 0
 
     # Change context name to inci
