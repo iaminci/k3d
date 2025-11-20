@@ -1,93 +1,277 @@
-# k3d
+# k3d Cluster Setup
 
+Streamlined k3d Kubernetes cluster deployment with Nginx Ingress Controller and TLS certificate support.
 
+> ⭐ If you find this project helpful, please consider giving it a star on GitLab! It helps others discover the project.
 
-## Getting started
+## Overview
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+This project provides an automated way to create and configure a local Kubernetes cluster using k3d (k3s in Docker). The setup includes:
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- **1 Server node** and **2 Agent nodes**
+- **Nginx Ingress Controller** (Traefik disabled)
+- **TLS certificate configuration** for HTTPS support
+- **Shared volume mount** at `/mnt`
+- **Port forwarding** for HTTP (80) and HTTPS (443)
 
-## Add your files
+## Prerequisites
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+Before running this project, ensure you have the following installed:
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/inci-projects/k3d.git
-git branch -M main
-git push -uf origin main
-```
+- **Docker** - Required for k3d to run
+- **k3d** - Kubernetes in Docker
+- **kubectl** - Kubernetes command-line tool
+- **Helm** - Package manager for Kubernetes (for Nginx Ingress installation)
+- **kubectx** (optional) - For easier context switching
 
-## Integrate with your tools
+### System Requirements
 
-- [ ] [Set up project integrations](https://gitlab.com/inci-projects/k3d/-/settings/integrations)
+- Docker daemon running
+- At least 4GB of available RAM
+- Ports 80, 443, and 6445 available on the host
 
-## Collaborate with your team
+## Cluster Configuration
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+The cluster is configured via `config.yml` with the following specifications:
 
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+- **Cluster Name**: k3d
+- **K3s Version**: v1.33.3-k3s1
+- **API Server**: Exposed on `0.0.0.0:6445`
+- **Servers**: 1
+- **Agents**: 2
+- **Load Balancer**: Enabled (ports 80 and 443)
+- **Traefik**: Disabled (using Nginx Ingress instead)
+- **Volume Mount**: `./mnt:/mnt` (shared across all nodes)
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+
+### 1. Clone the Repository
+
+```bash
+git clone https://gitlab.com/inci-projects/k3d.git
+cd k3d
+```
+
+### 2. Update Configuration
+
+Modify the `config.yml` file to match your local setup:
+
+**Cluster Name** (line 4):
+
+```yaml
+metadata:
+  name: your-cluster-name
+```
+
+**Volume Mount Path** (line 12):
+
+```yaml
+volumes:
+  - volume: /your/custom/path:/mnt
+    nodeFilters:
+      - server:0
+      - agent:*
+```
+
+**Other optional configurations**:
+
+- Number of servers/agents
+- Port mappings
+- K3s version
+
+### 3. Create the Cluster
+
+```bash
+k3d cluster create --config config.yml
+```
+
+### 4. Install Nginx Ingress Controller (Optional)
+
+After the cluster is created, you can install Nginx Ingress Controller:
+
+```bash
+# Add Nginx Ingress repository
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+# Install Nginx Ingress Controller
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace kube-system \
+  --set controller.ingressClassResource.name=nginx \
+  --wait
+```
+
+### 5. Configure TLS Certificates (Optional)
+
+If you want to use HTTPS, create a TLS secret:
+
+```bash
+kubectl create secret tls tls-secret \
+  --key /path/to/your/privkey.pem \
+  --cert /path/to/your/fullchain.pem \
+  --namespace kube-system
+```
+
+Then reference it in your Helm installation:
+
+```bash
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace kube-system \
+  --set controller.ingressClassResource.name=nginx \
+  --set controller.extraArgs.default-ssl-certificate=kube-system/tls-secret \
+  --wait
+```
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### Access the Cluster
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+After installation, you can interact with your cluster using kubectl:
+
+```bash
+# View cluster nodes
+kubectl get nodes
+
+# View all pods
+kubectl get pods --all-namespaces
+
+# Switch context (if kubectx is installed)
+kubectx <cluster-name>
+```
+
+### Deploy Applications
+
+Deploy your applications to the cluster and expose them via Ingress:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  tls:
+    - hosts:
+        - example.local
+      secretName: tls-secret
+  rules:
+    - host: example.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: your-service
+                port:
+                  number: 80
+```
+
+### Access Shared Volume
+
+The `/mnt` directory is mounted from your host to all cluster nodes, allowing you to share files:
+
+```bash
+# Place files in the local mnt directory
+cp myfile.txt ./mnt/
+
+# Access from within a pod
+kubectl exec -it <pod-name> -- ls /mnt
+```
+
+## Managing the Cluster
+
+### Stop the Cluster
+
+```bash
+k3d cluster stop <cluster-name>
+```
+
+### Start the Cluster
+
+```bash
+k3d cluster start <cluster-name>
+```
+
+### Delete the Cluster
+
+```bash
+k3d cluster delete <cluster-name>
+```
+
+### View Cluster Info
+
+```bash
+k3d cluster list
+k3d node list
+```
+
+## Troubleshooting
+
+### Cluster Creation Fails
+
+- Ensure Docker is running: `docker ps`
+- Check if ports 80, 443, and 6445 are available
+- Review cluster creation logs: `k3d cluster list`
+- Verify the config.yml file is valid
+
+### TLS Certificate Issues
+
+- Verify the certificate paths are correct and accessible
+- Ensure certificates are valid and not expired
+- Check secret creation: `kubectl get secrets -n kube-system`
+
+### Ingress Not Working
+
+- Verify Nginx Ingress Controller is running:
+  ```bash
+  kubectl get pods -n kube-system | grep ingress
+  ```
+- Check ingress resources:
+  ```bash
+  kubectl get ingress --all-namespaces
+  ```
+
+### Context Issues
+
+If `kubectx` is not installed, manually switch contexts:
+
+```bash
+kubectl config use-context k3d-<cluster-name>
+```
+
+## Project Structure
+
+```
+k3d/
+├── config.yml      # k3d cluster configuration
+├── mnt/            # Shared volume mount directory
+└── README.md       # This file
+```
+
+## Support the Project
+
+If you find this project useful, please consider:
+
+- ⭐ **Starring** the repository on GitLab
+- 🐛 **Reporting issues** if you find any bugs
+- 💡 **Suggesting features** or improvements
+- 🔀 **Contributing** via merge requests
+- 📢 **Sharing** the project with others
+
+Your support helps make this project better for everyone!
 
 ## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+This project is provided as-is for educational and development purposes.
+
+## Notes
+
+- This setup is intended for **local development** environments
+- For production use, consider additional security hardening and high-availability configurations
+- The cluster uses the lightweight k3s distribution, which is ideal for development and edge computing scenarios
