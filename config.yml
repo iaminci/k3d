@@ -27,3 +27,8 @@ options:
     disableLoadbalancer: false
     disableImageVolume: false
     disableRollback: false
+  k3s:
+    extraArgs:
+      - arg: --disable=traefik
+        nodeFilters:
+          - server:0
